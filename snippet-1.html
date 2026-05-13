@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- This page is an AI travel concierge that helps plan trips -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>My AI Concierge — Travel Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=Space+Grotesk:wght@400..700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { display: ['Space Grotesk', 'sans-serif'], body: ['Inter', 'sans-serif'] },
+          colors: { accent: { 400: '#22d3ee', 500: '#06b6d4', 600: '#0891b2' } }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --accent: 34 211 238; --bg: #0a0a0a; --surface: rgba(255,255,255,0.04); --line: rgba(255,255,255,0.08); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: #e4e4e7; overflow: hidden; height: 100vh; }
+    #app { display: flex; flex-direction: column; height: 100vh; max-width: 900px; margin: 0 auto; }
+    .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; background: rgba(10,10,10,0.8); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 10; }
+    .chat-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 600; letter-spacing: -0.03em; }
+    .chat-header .status { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .chat-header .status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .messages { flex: 1; overflow-y: auto; padding: 20px 16px 0; scroll-behavior: smooth; }
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    .msg { display: flex; gap: 10px; margin-bottom: 20px; max-width: 85%; animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .msg.assistant { align-self: flex-start; }
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg .avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .msg.assistant .avatar { background: linear-gradient(135deg, #22d3ee, #a78bfa); }
+    .msg.user .avatar { background: #27272a; border: 1px solid var(--line); }
+    .msg .bubble { padding: 12px 16px; border-radius: 16px; font-size: 14px; line-height: 1.6; background: var(--surface); border: 1px solid var(--line); }
+    .msg.assistant .bubble { border-bottom-left-radius: 4px; }
+    .msg.user .bubble { background: rgba(34,211,238,0.1); border-color: rgba(34,211,238,0.2); border-bottom-right-radius: 4px; color: #fff; }
+    .msg .bubble h3 { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 6px; color: #fff; }
+    .msg .bubble p { margin-bottom: 4px; color: #a1a1aa; }
+    .msg .bubble .quick-replies { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .msg .bubble .quick-reply { padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: rgba(34,211,238,0.08); border: 1px solid rgba(34,211,238,0.15); color: #22d3ee; cursor: pointer; transition: all 0.2s; }
+    .msg .bubble .quick-reply:hover { background: rgba(34,211,238,0.15); }
+    .msg .bubble .btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px; border-radius: 9999px; font-size: 13px; font-weight: 600; background: #22d3ee; color: #0a0a0a; border: none; cursor: pointer; transition: all 0.2s; margin-top: 8px; }
+    .msg .bubble .btn-primary:hover { background: #06b6d4; transform: scale(1.02); }
+    .typing { display: flex; gap: 4px; padding: 4px 0; }
+    .typing span { width: 6px; height: 6px; border-radius: 50%; background: #52525b; animation: bounce 1.4s infinite; }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+    .input-bar { padding: 12px 16px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; background: rgba(10,10,10,0.8); backdrop-filter: blur(12px); }
+    .input-bar input { flex: 1; padding: 10px 16px; border-radius: 9999px; border: 1px solid var(--line); background: var(--surface); color: #e4e4e7; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    .input-bar input:focus { border-color: rgba(34,211,238,0.4); }
+    .input-bar input::placeholder { color: #52525b; }
+    .input-bar button { width: 40px; height: 40px; border-radius: 50%; border: none; background: #22d3ee; color: #0a0a0a; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+    .input-bar button:hover { background: #06b6d4; transform: scale(1.05); }
+    .input-bar button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+    .settings-btn { margin-left: auto; background: rgba(255,255,255,0.06); border: 1px solid var(--line); border-radius: 9999px; padding: 6px 12px; font-size: 12px; color: #a1a1aa; cursor: pointer; transition: all 0.2s; }
+    .settings-btn:hover { background: rgba(255,255,255,0.1); }
+    .settings-panel { display: none; position: absolute; top: 100%; right: 16px; width: 380px; max-width: calc(100vw - 32px); background: #18181b; border: 1px solid var(--line); border-radius: 16px; padding: 20px; z-index: 20; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+    .settings-panel.open { display: block; }
+    .settings-panel h3 { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #fff; }
+    .settings-panel label { font-size: 12px; color: #a1a1aa; display: block; margin-bottom: 4px; }
+    .settings-panel input, .settings-panel select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); color: #e4e4e7; font-size: 13px; outline: none; margin-bottom: 12px; }
+    .settings-panel input:focus { border-color: rgba(34,211,238,0.4); }
+    .settings-panel .btn-save { width: 100%; padding: 8px; border-radius: 8px; border: none; background: #22d3ee; color: #0a0a0a; font-weight: 600; font-size: 13px; cursor: pointer; }
+    .settings-panel .btn-save:hover { background: #06b6d4; }
+    .settings-panel .hint { font-size: 11px; color: #71717a; margin-top: -8px; margin-bottom: 12px; }
+    .settings-panel .hint a { color: #22d3ee; }
+    .settings-panel .free-badge { display: inline-block; background: rgba(34,197,94,0.15); color: #22c55e; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+    @media (max-width: 640px) {
+      .msg { max-width: 92%; }
+      .chat-header h1 { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Main app container — this holds the whole chat interface -->
+  <div id="app" role="main">
+    <!-- Chat header with AI status and settings button -->
+    <header class="chat-header" style="position:relative;">
+      <div class="avatar" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:16px;">✈️</div>
+      <div>
+        <h1>My AI Concierge</h1>
+        <span class="status" id="statusText">Online · Static mode</span>
+      </div>
+      <button id="settingsBtn" class="settings-btn" aria-label="Open settings">⚙️ Settings</button>
+      
+      <!-- Settings panel — this pops up when you click the gear icon -->
+      <div class="settings-panel" id="settingsPanel">
+        <h3>⚙️ AI Settings</h3>
+        
+        <!-- Step 1: Pick a provider (like OpenAI or Groq) -->
+        <label for="providerSelect">AI Provider</label>
+        <select id="providerSelect">
+          <option value="openai">OpenAI (GPT-4o Mini — $0.15/million chars)</option>
+          <option value="groq">Groq (Llama 3 — <strong>FREE</strong>) <span class="free-badge">FREE</span></option>
+          <option value="custom">Custom API (any provider)</option>
+        </select>
+
+        <!-- Step 2: Paste your secret API key here -->
+        <label for="apiKeyInput">API Key</label>
+        <input type="password" id="apiKeyInput" placeholder="gsk_... or sk-..." autocomplete="off">
+        
+        <!-- Step 3: Pick which AI model to use -->
+        <label for="modelSelect">Model</label>
+        <select id="modelSelect">
+          <!-- Options are filled by JavaScript based on which provider you chose -->
+        </select>
+
+        <!-- Custom URL field — only shows if you picked "Custom API" -->
+        <div id="customUrlGroup" style="display:none;">
+          <label for="apiUrlInput">API URL</label>
+          <input type="text" id="apiUrlInput" placeholder="https://api.openai.com/v1/chat/completions">
+        </div>
+
+        <!-- A quick guide that changes based on which provider you selected -->
+        <div class="hint" id="providerGuide">
+          <strong>Groq is free!</strong> Sign up at <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>, click "API Keys", create one, and paste it above.
+        </div>
+
+        <button class="btn-save" id="saveSettingsBtn">Save &amp; Connect</button>
+        <div id="settingsStatus" style="font-size:11px;color:#71717a;margin-top:8px;text-align:center;"></div>
+      </div>
+    </header>
+    
+    <!-- Message area — where the chat bubbles appear -->
+    <div class="messages" id="messages" role="log" aria-live="polite"></div>
+    
+    <!-- Input bar — where you type your message -->
+    <div class="input-bar">
+      <input type="text" id="chatInput" placeholder="Where would you like to go?" aria-label="Type your travel request" autocomplete="off" autofocus>
+      <button id="sendBtn" aria-label="Send message">
+        <i data-lucide="send" style="width:18px;height:18px;"></i>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // This is the main script. It runs the whole travel concierge app.
+    // A "script" is a block of code that makes the page interactive.
+    (function() {
+      'use strict';
+
+      // --- State ---
+      // "State" means all the data the app remembers while you use it.
+      let messages = [];           // The chat history
+      let isProcessing = false;    // Is the AI currently thinking?
+      let conversationContext = {}; // What destination are we talking about?
+      let apiKey = '';             // Your secret API key
+      let apiUrl = 'https://api.openai.com/v1/chat/completions';  // Where to send the AI request
+      let model = 'gpt-4o-mini';   // Which AI model to use
+      let provider = 'openai';     // Which company provides the AI
+
+      // Load saved settings and conversation from localStorage
+      // localStorage is like a tiny notepad your browser keeps.
+      // It remembers things even after you close the page.
+      try {
+        const savedSettings = localStorage.getItem('my-ai-concierge-settings');
+        if (savedSettings) {
+          const s = JSON.parse(savedSettings);
+          apiKey = s.apiKey || '';
+          apiUrl = s.apiUrl || 'https://api.openai.com/v1/chat/completions';
+          model = s.model || 'gpt-4o-mini';
+          provider = s.provider || 'openai';
+        }
+        const saved = localStorage.getItem('my-ai-concierge-convo');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.messages && Array.isArray(parsed.messages)) {
+            messages = parsed.messages;
+            conversationContext = parsed.context || {};
+          }
+        }
+      } catch(e) { /* start fresh */ }
+
+      // --- DOM refs ---
+      // "DOM" is the page's structure. These grab the HTML elements so we can talk to them.
+      const messagesEl = document.getElementById('messages');
+      const chatInput = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const settingsBtn = document.getElementById('settingsBtn');
+      const settingsPanel = document.getElementById('settingsPanel');
+      const apiKeyInput = document.getElementById('apiKeyInput');
+      const apiUrlInput = document.getElementById('apiUrlInput');
+      const providerSelect = document.getElementById('providerSelect');
+      const modelSelect = document.getElementById('modelSelect');
+      const customUrlGroup = document.getElementById('customUrlGroup');
+      const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+      const settingsStatus = document.getElementById('settingsStatus');
+      const statusText = document.getElementById('statusText');
+      const providerGuide = document.getElementById('providerGuide');
+
+      // --- Model options per provider ---
+      // This is a list of AI models for each provider.
+      const modelOptions = {
+        openai: [
+          { value: 'gpt-4o-mini', label: 'GPT-4o Mini (fast, cheap — $0.15)' },
+          { value: 'gpt-4o', label: 'GPT-4o (smart, slower — $2.50)' },
+          { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (older — $0.50)' }
+        ],
+        groq: [
+          { value: 'llama3-70b-8192', label: 'Llama 3 70B (best — FREE)' },
+          { value: 'llama3-8b-8192', label: 'Llama 3 8B (fast — FREE)' },
+          { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B (good — FREE)' },
+          { value: 'gemma2-9b-it', label: 'Gemma 2 9B (fast — FREE)' }
+        ],
+        custom: [
+          { value: 'custom', label: 'Custom (enter model name below)' }
+        ]
+      };
+
+      // --- Provider configs ---
+      // These are the URLs and guides for each provider.
+      const providerConfigs = {
+        openai: {
+          url: 'https://api.openai.com/v1/chat/completions',
+          guide: 'Get a key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>. Needs a credit card.'
+        },
+        groq: {
+          url: 'https://api.groq.com/openai/v1/chat/completions',
+          guide: '<strong>Groq is free!</strong> Sign up at <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>, click "API Keys", create one, and paste it above.'
+        },
+        custom: {
+          url: '',
+          guide: 'Enter the full API URL for your provider. Must be OpenAI-compatible (same format).'
+        }
+      };
+
+      // --- Update model dropdown when provider changes ---
+      // This function changes the list of models when you pick a different provider.
+      function updateModelOptions() {
+        const prov = providerSelect.value;
+        const options = modelOptions[prov] || modelOptions.openai;
+        modelSelect.innerHTML = '';
+        options.forEach(opt => {
+          const el = document.createElement('option');
+          el.value = opt.value;
+          el.textContent = opt.label;
+          modelSelect.appendChild(el);
+        });
+        
+        // Show/hide custom URL field
+        customUrlGroup.style.display = prov === 'custom' ? 'block' : 'none';
+        
+        // Update guide text
+        const config = providerConfigs[prov];
+        if (config) {
+          providerGuide.innerHTML = config.guide;
+        }
+      }
+
+      // --- Update status display ---
+      // This changes the text next to the green dot to say "AI mode" or "Static mode".
+      function updateStatus() {
+        if (apiKey) {
+          const provLabel = providerSelect.options[providerSelect.selectedIndex]?.text || 'AI';
+          statusText.textContent = 'Online · ' + provLabel;
+          statusText.style.color = '#22d3ee';
+        } else {
+          statusText.textContent = 'Online · Static mode';
+          statusText.style.color = '#22c55e';
+        }
+      }
+
+      // --- Call the real AI API ---
+      // This sends your message to the AI and waits for a reply.
+      // An "API" is like a phone number the app calls to talk to the AI.
+      async function callAI(userMessage) {
+        // Build the conversation history for the AI to understand context
+        const conversationHistory = messages.slice(-10).map(m => ({
+          role: m.role,
+          content: m.text
+        }));
+        conversationHistory.push({ role: 'user', content: userMessage });
+
+        // Tell the AI it's a travel concierge
+        const systemPrompt = `You are My AI Concierge, a friendly and knowledgeable travel planning assistant. 
+You help users plan trips — destinations, budgets, itineraries, food, activities, packing, visas, everything.
+Be warm, specific, and helpful. Use emojis naturally. Keep responses concise (under 200 words).
+If the user asks about a destination you don't know, research it from your knowledge and give the best advice you can.
+Always end with 2-3 short follow-up questions or suggestions to keep the conversation going.`;
+
+        // Send the request to the AI API
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + apiKey
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...conversationHistory
+            ],
+            max_tokens: 500,
+            temperature: 0.7
+          })
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error('API error: ' + response.status + ' - ' + errorText);
+        }
+
+        const data = await response.json();
+        const reply = data.choices[0].message.content;
+        
+        // Extract quick reply suggestions from [brackets]
+        const quickReplies = [];
+        const qrMatch = reply.match(/\[(.*?)\]/g);
+        if (qrMatch) {
+          qrMatch.forEach(q => {
+            const clean = q.replace(/[\[\]]/g, '').trim();
+            if (clean.length > 0 && clean.length < 60) {
+              quickReplies.push(clean);
+            }
+          });
+        }
+
+        return {
+          text: reply,
+          quickReplies: quickReplies.length > 0 ? quickReplies.slice(0, 4) : undefined
+        };
+      }
+
+      // --- Fallback response (used when no API key is set) ---
+      // This is the "static" mode — it only knows a few destinations.
+      const fallbackDestinations = {
+        montreal: {
+          name: 'Montreal',
+          country: 'Canada',
+          emoji: '🍁',
+          vibe: 'Cultural & Foodie',
+          bestMonths: 'May–Oct',
+          avgTemp: '10–26°C',
+          currency: 'CAD',
+          language: 'French & English',
+          attractions: ['Old Montreal', 'Mount Royal Park', 'Notre-Dame Basilica', 'Jean-Talon Market', 'Plateau Mont-Royal'],
+          cuisine: ['Poutine', 'Smoked Meat Sandwich', 'Bagels', 'Maple Syrup Pie', 'Tourtière'],
+          budget: { budget: 'CAD 80–120/day', mid: 'CAD 150–250/day', luxury: 'CAD 350+/day' },
+          tip: 'Visit in summer for festivals — Just for Laughs and Jazz Fest are world-class.',
+          image: 'https://images.unsplash.com/photo-1599768177629-2c7a8cdd2b0c?w=800&q=80'
+        },
+        paris: {
+          name: 'Paris',
+          country: 'France',
+          emoji: '🗼',
+          vibe: 'Romantic & Cultural',
+          bestMonths: 'Apr–Jun, Sep–Oct',
+          avgTemp: '15–25°C',
+          currency: 'EUR',
+          language: 'French',
+          attractions: ['Eiffel Tower', 'Louvre Museum', 'Notre-Dame', 'Montmartre', 'Seine River Cruise'],
+          cuisine: ['Croissants', 'Escargots', 'Bouillabaisse', 'Crème Brûlée'],
+          budget: { budget: '€80–120/day', mid: '€150–250/day', luxury: '€300+/day' },
+          tip: 'Book Louvre tickets online at least 2 weeks ahead.',
+          image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&q=80'
+        }
+      };
+
+      // This function decides what to say when there's no API key.
+      function generateFallbackResponse(userMessage) {
+        const msg = userMessage.toLowerCase();
+        
+        if (/^(hi|hello|hey)/i.test(msg)) {
+          return {
+            text: `Hey there! ✈️ I'm **My AI Concierge**.\n\nRight now I'm in **static mode** — I only know a few destinations. To ask me anything, click ⚙️ Settings and add a **free** Groq API key.\n\nFor now, try: Montreal or Paris!`,
+            quickReplies: ['🍁 Montreal', '🗼 Paris', '⚙️ Set up free AI']
+          };
+        }
+
+        for (const [key, dest] of Object.entries(fallbackDestinations)) {
+          if (msg.includes(key) || msg.includes(dest.name.toLowerCase()) || msg.includes(dest.country.toLowerCase())) {
+            conversationContext.currentDest = key;
+            return {
+              text: `**${dest.emoji} ${dest.name}, ${dest.country}**\n\n${dest.vibe} destination.\n\n🌡️ ${dest.avgTemp} · Best: ${dest.bestMonths}\n💰 ${dest.currency} · ${dest.language}\n\n**Top attractions:**\n• ${dest.attractions.slice(0,3).join('\n• ')}\n\n${dest.tip}\n\n💡 Want more? Add a **free** Groq API key in ⚙️ Settings!`,
+              destination: key,
+              quickReplies: ['What to eat? 🍜', 'Budget breakdown 💰', 'Plan my itinerary 📋', '⚙️ Set up free AI']
+            };
+          }
+        }
+
+        return {
+          text: `I'd love to help! But right now I'm in **static mode** — I only know about Montreal and Paris.\n\nTo unlock my full AI brain, click ⚙️ Settings and paste a **free** Groq API key. Then you can ask me anything!`,
+          quickReplies: ['🍁 Montreal', '🗼 Paris', '⚙️ Set up free AI']
+        };
+      }
+
+      // --- Render a message bubble ---
+      // This creates the HTML for a single chat message.
+      function renderMessage(msg) {
+        const div = document.createElement('div');
+        div.className = `msg ${msg.role}`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = msg.role === 'assistant' ? '✈️' : '👤';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        
+        let text = msg.text || '';
+        text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/\n/g, '<br>');
+        bubble.innerHTML = text;
+
+        if (msg.image) {
+          const img = document.createElement('img');
+          img.src = msg.image;
+          img.alt = 'Destination photo';
+          img.loading = 'lazy';
+          img.style.cssText = 'width:100%;border-radius:10px;margin-top:10px;max-height:240px;object-fit:cover;';
+          bubble.appendChild(img);
+        }
+
+        if (msg.quickReplies && msg.quickReplies.length > 0) {
+          const qr = document.createElement('div');
+          qr.className = 'quick-replies';
+          msg.quickReplies.forEach(reply => {
+            const btn = document.createElement('span');
+            btn.className = 'quick-reply';
+            btn.textContent = reply;
+            btn.addEventListener('click', () => {
+              chatInput.value = reply;
+              handleSend();
+            });
+            qr.appendChild(btn);
+          });
+          bubble.appendChild(qr);
+        }
+
+        if (msg.destination) {
+          const cta = document.createElement('button');
+          cta.className = 'btn-primary';
+          cta.innerHTML = '✈️ Start planning this trip';
+          cta.addEventListener('click', () => {
+            chatInput.value = `Plan my trip to ${fallbackDestinations[msg.destination].name}`;
+            handleSend();
+          });
+          bubble.appendChild(cta);
+        }
+
+        div.appendChild(avatar);
+        div.appendChild(bubble);
+        return div;
+      }
+
+      // --- Add message to chat ---
+      // This saves a message and shows it on screen.
+      function addMessage(role, content) {
+        const msg = { role, ...content };
+        messages.push(msg);
+        const el = renderMessage(msg);
+        messagesEl.appendChild(el);
+        setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 50);
+        try {
+          localStorage.setItem('my-ai-concierge-convo', JSON.stringify({ messages, context: conversationContext }));
+        } catch(e) { /* ignore */ }
+      }
+
+      // --- Typing indicator ---
+      // This shows the "..." animation while the AI is "thinking".
+      function showTyping() {
+        const div = document.createElement('div');
+        div.className = 'msg assistant';
+        div.id = 'typing-indicator';
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = '✈️';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+        div.appendChild(avatar);
+        div.appendChild(bubble);
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function hideTyping() {
+        const el = document.getElementById('typing-indicator');
+        if (el) el.remove();
+      }
+
+      // --- Handle send ---
+      // This runs when you click Send or press Enter.
+      async function handleSend() {
+        const text = chatInput.value.trim();
+        if (!text || isProcessing) return;
+
+        chatInput.value = '';
+        isProcessing = true;
+        sendBtn.disabled = true;
+
+        addMessage('user', { text });
+        showTyping();
+
+        try {
+          let response;
+          if (apiKey) {
+            response = await callAI(text);
+          } else {
+            await new Promise(r => setTimeout(r, 600 + Math.random() * 400));
+            response = generateFallbackResponse(text);
+          }
+          hideTyping();
+          addMessage('assistant', response);
+        } catch (err) {
+          hideTyping();
+          addMessage('assistant', {
+            text: `❌ **Something went wrong:**\n\n${err.message}\n\nCheck your API key in ⚙️ Settings and try again.`
+          });
+        }
+
+        isProcessing = false;
+        sendBtn.disabled = false;
+        chatInput.focus();
+      }
+
+      // --- Event listeners ---
+      // These connect the buttons and keyboard to the handleSend function.
+      sendBtn.addEventListener('click', handleSend);
+      chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleSend();
+        }
+      });
+
+      // Settings panel toggle
+      settingsBtn.addEventListener('click', () => {
+        settingsPanel.classList.toggle('open');
+        apiKeyInput.value = apiKey;
+        apiUrlInput.value = apiUrl;
+        providerSelect.value = provider;
+        updateModelOptions();
+        if (modelSelect.querySelector(`option[value="${model}"]`)) {
+          modelSelect.value = model;
+        }
+      });
+
+      // Close settings when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!settingsBtn.contains(e.target) && !settingsPanel.contains(e.target)) {
+          settingsPanel.classList.remove('open');
+        }
+      });
+
+      // Update model list when provider changes
+      providerSelect.addEventListener('change', updateModelOptions);
+
+      // Save settings
+      saveSettingsBtn.addEventListener('click', () => {
+        const newKey = apiKeyInput.value.trim();
+        const newProvider = providerSelect.value;
+        const newModel = modelSelect.value;
+
+        if (!newKey) {
+          settingsStatus.textContent = '⚠️ API key is required for AI mode';
+          settingsStatus.style.color = '#fbbf24';
+          return;
+        }
+
+        let newUrl;
+        if (newProvider === 'custom') {
+          newUrl = apiUrlInput.value.trim();
+          if (!newUrl) {
+            settingsStatus.textContent = '⚠️ Please enter the API URL for your custom provider';
+            settingsStatus.style.color = '#fbbf24';
+            return;
+          }
+        } else {
+          newUrl = providerConfigs[newProvider].url;
+        }
+
+        apiKey = newKey;
+        apiUrl = newUrl;
+        model = newModel;
+        provider = newProvider;
+
+        try {
+          localStorage.setItem('my-ai-concierge-settings', JSON.stringify({ apiKey, apiUrl, model, provider }));
+        } catch(e) { /* ignore */ }
+
+        settingsStatus.textContent = '✅ Settings saved! AI mode activated.';
+        settingsStatus.style.color = '#22c55e';
+        updateStatus();
+
+        setTimeout(() => {
+          settingsPanel.classList.remove('open');
+          settingsStatus.textContent = '';
+        }, 1500);
+      });
+
+      // --- Init ---
+      // This runs when the page first loads.
+      function init() {
+        updateStatus();
+
+        apiKeyInput.value = apiKey;
+        apiUrlInput.value = apiUrl;
+        providerSelect.value = provider;
+        updateModelOptions();
+        if (modelSelect.querySelector(`option[value="${model}"]`)) {
+          modelSelect.value = model;
+        }
+
+        if (messages.length === 0) {
+          if (apiKey) {
+            addMessage('assistant', {
+              text: `👋 **Welcome to My AI Concierge!**\n\nI'm connected to AI mode. Ask me anything — destinations, budgets, itineraries, food, anything travel related!\n\nTry: "Plan a 2-week trip to Vietnam" or "What's the best time to visit Iceland?"`,
+              quickReplies: ['Plan a trip to Japan', 'Best beach destinations', 'Budget travel tips', 'Romantic weekend ideas']
+            });
+          } else {
+            addMessage('assistant', {
+              text: `👋 **Welcome to My AI Concierge!**\n\nI'm in **static mode** — Iknow a few destinations. To unlock my full AI brain, click ⚙️ Settings and paste a **free** Groq API key.\n\nFor now, try asking about Montreal or Paris!`,
+              quickReplies: ['🍁 Montreal', '🗼 Paris', '⚙️ Set up free AI']
+            });
+          }
+        } else {
+          messages.forEach(msg => {
+            const el = renderMessage(msg);
+            messagesEl.appendChild(el);
+          });
+          setTimeout(() => { messagesEl.scrollTop = messagesEl.scrollHeight; }, 100);
+        }
+
+        chatInput.focus();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
